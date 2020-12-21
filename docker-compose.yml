@@ -1,0 +1,18 @@
+version: "3.7"
+services:
+  redis:
+    restart: always
+    image: redis:6.0.9-buster
+    volumes:
+      - redis-data:/data
+    networks:
+      - go-chatroom
+    ports:
+      - "6379:6379"
+
+networks:
+  go-chatroom:
+    driver: bridge
+
+volumes:
+  redis-data:
