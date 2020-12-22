@@ -1,4 +1,4 @@
-package rediswrap
+package redis
 
 import (
 	"context"
