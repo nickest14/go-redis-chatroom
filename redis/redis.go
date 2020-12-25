@@ -3,6 +3,7 @@ package rediswrap
 import (
 	"context"
 	"fmt"
+	"go-redis-chatroom/constants"
 	"log"
 	"os"
 
@@ -43,5 +44,6 @@ func Connect() (*redis.Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	client.SAdd(ctx, constants.ChannelsKey, "general")
 	return client, nil
 }
