@@ -11,7 +11,6 @@ import (
 )
 
 var upgrader = &websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-var connectedUsers = make(map[string]*user.User)
 
 type commandMsg struct {
 	Content string `json:"content,omitempty"`
@@ -32,16 +31,14 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Connect to channel error", 400)
 		return
 	}
-	// closeCh := onDisconnect(r, conn, rdb)
-	closeCh := make(chan struct{})
+	closeCh := Disconnect(r, conn, u)
 
-loop:
 	for {
 		select {
 		case <-closeCh:
-			break loop
+			return
 		default:
-			onUserMessage(*u, conn, r)
+			onUserMessage(u, conn, r)
 		}
 	}
 }
@@ -77,17 +74,12 @@ func Connect(r *http.Request, conn *websocket.Conn) (*user.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	connectedUsers[username] = u
 
-	onChannelMessage(conn, r)
+	onChannelMessage(conn, r, u)
 	return u, nil
 }
 
-func onChannelMessage(conn *websocket.Conn, r *http.Request) {
-	fmt.Println(r.URL)
-	username := r.URL.Query()["username"][0]
-	u := connectedUsers[username]
-
+func onChannelMessage(conn *websocket.Conn, r *http.Request, u *user.User) {
 	go func() {
 		for m := range u.MessageChan {
 			if err := conn.WriteJSON(m); err != nil {
@@ -99,7 +91,7 @@ func onChannelMessage(conn *websocket.Conn, r *http.Request) {
 	}()
 }
 
-func onUserMessage(u user.User, conn *websocket.Conn, r *http.Request) {
+func onUserMessage(u *user.User, conn *websocket.Conn, r *http.Request) {
 
 	var commandMsg commandMsg
 	if err := conn.ReadJSON(&commandMsg); err != nil {
@@ -108,7 +100,6 @@ func onUserMessage(u user.User, conn *websocket.Conn, r *http.Request) {
 	}
 
 	// username := r.URL.Query()["username"][0]
-	// u := connectedUsers[username]
 	switch commandMsg.Command {
 	// case "subscribe":
 	// 	if err := u.Subscribe(rdb, msg.Channel); err != nil {
@@ -119,8 +110,23 @@ func onUserMessage(u user.User, conn *websocket.Conn, r *http.Request) {
 	// 		conn.WriteJSON(err.Error())
 	// 	}
 	case "chat":
-		if err := user.Chat(commandMsg.Channel, commandMsg.Content, &u); err != nil {
+		if err := user.Chat(commandMsg.Channel, commandMsg.Content, u); err != nil {
 			conn.WriteJSON(err.Error())
 		}
 	}
+}
+
+// Disconnect close the channels
+func Disconnect(r *http.Request, conn *websocket.Conn, u *user.User) chan struct{} {
+
+	closeCh := make(chan struct{})
+	conn.SetCloseHandler(func(code int, text string) error {
+		fmt.Println("connection closed for user", u)
+		if err := u.Disconnect(); err != nil {
+			return err
+		}
+		close(closeCh)
+		return nil
+	})
+	return closeCh
 }

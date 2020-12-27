@@ -39,6 +39,25 @@ func Connect(name string) (*User, error) {
 	return u, nil
 }
 
+// Disconnect the user channels
+func (u *User) Disconnect() error {
+	if u.channelsHandler != nil {
+		// if err := u.channelsHandler.Unsubscribe(ctx); err != nil {
+		// 	return err
+		// }
+		if err := u.channelsHandler.Close(); err != nil {
+			return err
+		}
+	}
+	if u.listening {
+		u.stopListenerChan <- struct{}{}
+	}
+
+	close(u.MessageChan)
+
+	return nil
+}
+
 func (u *User) channelConnect() error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
@@ -91,12 +110,12 @@ func (u *User) doConnect(ctx context.Context, rdb *redis.Client, channels ...str
 				}
 				msgDetail := receiveMsg{
 					Sender:  msgMap["sender"],
-					Channel: msg.Channel,
+					Channel: msgMap["channel"],
 					Content: msgMap["content"],
 				}
 				u.MessageChan <- msgDetail
-				// case <-u.stopListenerChan:
-				// 	fmt.Println("stopping the listener for user:", u.name)
+			case <-u.stopListenerChan:
+				fmt.Println("stopping the listener for user:", u.name)
 			}
 		}
 	}()
@@ -108,6 +127,7 @@ func Chat(channel string, content string, u *User) error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
 	sendMessage, _ := json.Marshal(map[string]string{
+		"channel": channel,
 		"sender":  u.name,
 		"content": content,
 	})
