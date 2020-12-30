@@ -105,20 +105,39 @@ func (u *User) doConnect(ctx context.Context, rdb *redis.Client, channels ...str
 					return
 				}
 				var msgMap map[string]string
-				if err := json.Unmarshal([]byte(msg.Payload), &msgMap); err != nil {
-					return
+				if err := json.Unmarshal([]byte(msg.Payload), &msgMap); err == nil {
+					msgDetail := receiveMsg{
+						Sender:  msgMap["sender"],
+						Channel: msgMap["channel"],
+						Content: msgMap["content"],
+					}
+					u.MessageChan <- msgDetail
 				}
-				msgDetail := receiveMsg{
-					Sender:  msgMap["sender"],
-					Channel: msgMap["channel"],
-					Content: msgMap["content"],
-				}
-				u.MessageChan <- msgDetail
 			case <-u.stopListenerChan:
 				fmt.Println("stopping the listener for user:", u.name)
+				return
 			}
 		}
 	}()
+	return nil
+}
+
+// Subscribe the specific channel
+func (u *User) Subscribe(channel string) error {
+	ctx := context.Background()
+	rdb := rediswrap.Client
+	userChannelsKey := fmt.Sprintf(constants.UserChannels, u.name)
+
+	if rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
+		return nil
+	}
+	if err := rdb.SAdd(ctx, userChannelsKey, channel).Err(); err != nil {
+		return err
+	}
+	fmt.Println("before", u.channelsHandler)
+	u.channelsHandler.Subscribe(ctx, channel)
+	fmt.Println("after", u.channelsHandler)
+
 	return nil
 }
 
@@ -126,9 +145,15 @@ func (u *User) doConnect(ctx context.Context, rdb *redis.Client, channels ...str
 func Chat(channel string, content string, u *User) error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
+	var sender string
+	if u == nil {
+		sender = "system"
+	} else {
+		sender = u.name
+	}
 	sendMessage, _ := json.Marshal(map[string]string{
 		"channel": channel,
-		"sender":  u.name,
+		"sender":  sender,
 		"content": content,
 	})
 	return rdb.Publish(ctx, channel, sendMessage).Err()

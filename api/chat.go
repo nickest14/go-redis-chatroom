@@ -101,10 +101,10 @@ func onUserMessage(u *user.User, conn *websocket.Conn, r *http.Request) {
 
 	// username := r.URL.Query()["username"][0]
 	switch commandMsg.Command {
-	// case "subscribe":
-	// 	if err := u.Subscribe(rdb, msg.Channel); err != nil {
-	// 		conn.WriteJSON(err.Error())
-	// 	}
+	case "subscribe":
+		if err := u.Subscribe(commandMsg.Channel); err != nil {
+			conn.WriteJSON(err.Error())
+		}
 	// case "unsubscribe":
 	// 	if err := u.Unsubscribe(rdb, msg.Channel); err != nil {
 	// 		conn.WriteJSON(err.Error())
