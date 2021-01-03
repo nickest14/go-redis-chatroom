@@ -102,13 +102,13 @@ func onUserMessage(u *user.User, conn *websocket.Conn, r *http.Request) {
 	// username := r.URL.Query()["username"][0]
 	switch commandMsg.Command {
 	case "subscribe":
-		if err := u.Subscribe(commandMsg.Channel); err != nil {
+		if err := u.HandleSubscribe(true, commandMsg.Channel); err != nil {
 			conn.WriteJSON(err.Error())
 		}
-	// case "unsubscribe":
-	// 	if err := u.Unsubscribe(rdb, msg.Channel); err != nil {
-	// 		conn.WriteJSON(err.Error())
-	// 	}
+	case "unsubscribe":
+		if err := u.HandleSubscribe(false, commandMsg.Channel); err != nil {
+			conn.WriteJSON(err.Error())
+		}
 	case "chat":
 		if err := user.Chat(commandMsg.Channel, commandMsg.Content, u); err != nil {
 			conn.WriteJSON(err.Error())
@@ -118,7 +118,6 @@ func onUserMessage(u *user.User, conn *websocket.Conn, r *http.Request) {
 
 // Disconnect close the channels
 func Disconnect(r *http.Request, conn *websocket.Conn, u *user.User) chan struct{} {
-
 	closeCh := make(chan struct{})
 	conn.SetCloseHandler(func(code int, text string) error {
 		fmt.Println("connection closed for user", u)

@@ -122,22 +122,30 @@ func (u *User) doConnect(ctx context.Context, rdb *redis.Client, channels ...str
 	return nil
 }
 
-// Subscribe the specific channel
-func (u *User) Subscribe(channel string) error {
+// HandleSubscribe handle subscribe and unsubscribe the specific channel
+func (u *User) HandleSubscribe(subscrube bool, channel string) error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
 	userChannelsKey := fmt.Sprintf(constants.UserChannels, u.name)
-
-	if rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
-		return nil
+	if subscrube == true {
+		// handle subscribe
+		if rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
+			return nil
+		}
+		if err := rdb.SRem(ctx, userChannelsKey, channel).Err(); err != nil {
+			return err
+		}
+		u.channelsHandler.Unsubscribe(ctx, channel)
+	} else {
+		// handle unsubscribe
+		if !rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
+			return nil
+		}
+		if err := rdb.SRem(ctx, userChannelsKey, channel).Err(); err != nil {
+			return err
+		}
+		u.channelsHandler.Unsubscribe(ctx, channel)
 	}
-	if err := rdb.SAdd(ctx, userChannelsKey, channel).Err(); err != nil {
-		return err
-	}
-	fmt.Println("before", u.channelsHandler)
-	u.channelsHandler.Subscribe(ctx, channel)
-	fmt.Println("after", u.channelsHandler)
-
 	return nil
 }
 
