@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"go-redis-chatroom/constants"
+	rediswrap "go-redis-chatroom/redis"
 	user "go-redis-chatroom/user"
 	"math/rand"
 	"net/http"
@@ -28,7 +31,7 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := Connect(r, conn)
 	if err != nil {
-		http.Error(w, "Connect to channel error", 400)
+		http.Error(w, "Connect to channel error", http.StatusBadRequest)
 		return
 	}
 	closeCh := Disconnect(r, conn, u)
@@ -40,6 +43,22 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			onUserMessage(u, conn, r)
 		}
+	}
+}
+
+// UsersHandler list the users
+func UsersHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	rdb := rediswrap.Client
+	list, err := rdb.SMembers(ctx, constants.UsersKey).Result()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = json.NewEncoder(w).Encode(list)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 }
 
@@ -64,13 +83,15 @@ func randomString(n int) string {
 func Connect(r *http.Request, conn *websocket.Conn) (*user.User, error) {
 	params := r.URL.Query()
 	var username string
+	isVisitor := false
 	if params["username"] != nil {
 		username = params["username"][0]
 	} else {
 		username = "visitor_" + randomString(6)
+		isVisitor = true
 	}
 	fmt.Println("connected from:", conn.RemoteAddr(), "user:", username)
-	u, err := user.Connect(username)
+	u, err := user.Connect(username, isVisitor)
 	if err != nil {
 		return nil, err
 	}

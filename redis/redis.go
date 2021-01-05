@@ -33,8 +33,8 @@ func getEnv(key, defaultValue string) string {
 
 // Connect return a redis client
 func Connect() (*redis.Client, error) {
-	host := getEnv("HOST", "localhost")
-	port := getEnv("PORT", "6379")
+	host := getEnv("REDISHOST", "localhost")
+	port := getEnv("REDISPORT", "6379")
 
 	client := redis.NewClient(&redis.Options{
 		Addr: fmt.Sprintf("%s:%s", host, port),

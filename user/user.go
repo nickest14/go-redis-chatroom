@@ -23,14 +23,16 @@ type User struct {
 	stopListenerChan chan struct{}
 	listening        bool
 	MessageChan      chan receiveMsg
+	isVisitor        bool
 }
 
 //Connect connect user to user channels on redis
-func Connect(name string) (*User, error) {
+func Connect(name string, isVisitor bool) (*User, error) {
 	u := &User{
 		name:             name,
 		stopListenerChan: make(chan struct{}),
 		MessageChan:      make(chan receiveMsg),
+		isVisitor:        isVisitor,
 	}
 	if err := u.channelConnect(); err != nil {
 		return nil, err
@@ -61,9 +63,10 @@ func (u *User) Disconnect() error {
 func (u *User) channelConnect() error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
-
-	if _, err := rdb.SAdd(ctx, constants.UsersKey, u.name).Result(); err != nil {
-		return err
+	if !u.isVisitor {
+		if _, err := rdb.SAdd(ctx, constants.UsersKey, u.name).Result(); err != nil {
+			return err
+		}
 	}
 	var c []string
 

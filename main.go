@@ -3,6 +3,7 @@ package main
 import (
 	api "go-redis-chatroom/api"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
 )
@@ -10,6 +11,11 @@ import (
 func main() {
 	r := mux.NewRouter()
 	r.Path("/chat").Methods("GET").HandlerFunc(api.WsHandler)
+	r.Path("/users").Methods("GET").HandlerFunc(api.UsersHandler)
 	r.Path("/test").Methods("GET").HandlerFunc(api.TestHandler)
-	http.ListenAndServe(":9000", r)
+	port := ":" + os.Getenv("PORT")
+	if port == ":" {
+		port = ":9000"
+	}
+	http.ListenAndServe(port, r)
 }
