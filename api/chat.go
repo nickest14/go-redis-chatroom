@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 )
 
@@ -50,12 +51,28 @@ func WsHandler(w http.ResponseWriter, r *http.Request) {
 func UsersHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	rdb := rediswrap.Client
-	list, err := rdb.SMembers(ctx, constants.UsersKey).Result()
+	userList, err := rdb.SMembers(ctx, constants.UsersKey).Result()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = json.NewEncoder(w).Encode(list)
+	err = json.NewEncoder(w).Encode(userList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+// UserChannelsHandler list the iser channels
+func UserChannelsHandler(w http.ResponseWriter, r *http.Request) {
+	username := mux.Vars(r)["user"]
+
+	userChannels, err := user.GetChannels(username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = json.NewEncoder(w).Encode(userChannels)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

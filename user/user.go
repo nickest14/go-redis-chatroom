@@ -63,32 +63,45 @@ func (u *User) Disconnect() error {
 func (u *User) channelConnect() error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
+
 	if !u.isVisitor {
 		if _, err := rdb.SAdd(ctx, constants.UsersKey, u.name).Result(); err != nil {
 			return err
 		}
 	}
-	var c []string
-
-	c1, err := rdb.SMembers(ctx, constants.ChannelsKey).Result()
+	userChannels, err := GetChannels(u.name)
 	if err != nil {
 		return err
 	}
-	c = append(c, c1...)
 
-	// get all user channels from userchannels key
-	c2, err := rdb.SMembers(ctx, fmt.Sprintf(constants.UserChannels, u.name)).Result()
-	if err != nil {
-		return err
-	}
-	c = append(c, c2...)
-
-	if len(c) == 0 {
+	if len(userChannels) == 0 {
 		fmt.Println("no channels to connect to for user: ", u.name)
 		return nil
 	}
 
-	return u.doConnect(ctx, rdb, c...)
+	return u.doConnect(ctx, rdb, userChannels...)
+}
+
+// GetChannels return the user channels
+func GetChannels(username string) ([]string, error) {
+	ctx := context.Background()
+	rdb := rediswrap.Client
+
+	var c []string
+	c1, err := rdb.SMembers(ctx, constants.ChannelsKey).Result()
+	if err != nil {
+		return nil, err
+	}
+	c = append(c, c1...)
+
+	// get all user channels from userchannels key
+	c2, err := rdb.SMembers(ctx, fmt.Sprintf(constants.UserChannels, username)).Result()
+	if err != nil {
+		return nil, err
+	}
+	c = append(c, c2...)
+
+	return c, nil
 }
 
 func (u *User) doConnect(ctx context.Context, rdb *redis.Client, channels ...string) error {
