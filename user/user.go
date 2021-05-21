@@ -143,15 +143,16 @@ func (u *User) HandleSubscribe(subscrube bool, channel string) error {
 	ctx := context.Background()
 	rdb := rediswrap.Client
 	userChannelsKey := fmt.Sprintf(constants.UserChannels, u.name)
+
 	if subscrube == true {
 		// handle subscribe
 		if rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
 			return nil
 		}
-		if err := rdb.SRem(ctx, userChannelsKey, channel).Err(); err != nil {
+		if err := rdb.SAdd(ctx, userChannelsKey, channel).Err(); err != nil {
 			return err
 		}
-		u.channelsHandler.Unsubscribe(ctx, channel)
+		u.channelsHandler.Subscribe(ctx, channel)
 	} else {
 		// handle unsubscribe
 		if !rdb.SIsMember(ctx, userChannelsKey, channel).Val() {
